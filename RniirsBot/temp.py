@@ -172,7 +172,7 @@ def choose_organisation(message):
             bot.edit_message_media(
                 media=telebot.types.InputMediaPhoto(photo, caption="Организация не найдена"),
                 chat_id=message.chat.id,
-                message_id=message.message_id,
+                message_id=message.message_id-1,
                 reply_markup=keyboard
             )
 
