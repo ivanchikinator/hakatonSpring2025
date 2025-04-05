@@ -383,43 +383,30 @@ def settings(call: CallbackQuery):
 @bot.callback_query_handler(func=lambda call: call.data == 'interesting_themes')
 def interesting_themes(call: CallbackQuery):
     cursor.execute('SELECT science_themes FROM Users WHERE id = ?', (call.message.chat.id,))
-    user_themes = list(cursor.fetchall())
-    if 'Биология' in user_themes:
-        biology = BIOLOGY + '✔'
-    else:
-        biology = BIOLOGY + '❌'
-    if 'Медицина' in user_themes:
-        medicine = MEDICINE + '✔'
-    else:
-        medicine = MEDICINE + '❌'
-    if 'Физика' in user_themes:
-        physics = PHYSICS + '✔'
-    else:
-        physics = PHYSICS + '❌'
-    if 'Химия' in user_themes:
-        chemistry = CHEMISTRY + '✔'
-    else:
-        chemistry = MEDICINE + '❌'
-    if 'Математика' in user_themes:
-        maths = MATHS + '✔'
-    else:
-        maths = MATHS + '❌'
-    if 'Агрокультура' in user_themes:
-        agro = AGRO + '✔'
-    else:
-        agro = AGRO + '❌'
-    if 'Инженерные науки' in user_themes:
-        engineer = ENGINEER + '✔'
-    else:
-        engineer = ENGINEER + '❌'
-    if 'Науки о земле' in user_themes:
-        earth_science = EARTH_SCIENCE + '✔'
-    else:
-        earth_science = EARTH_SCIENCE + '❌'
-    if 'Гуманитарные науки' in user_themes:
-        social_inst = SOCIAL_INST + '✔'
-    else:
-        social_inst = SOCIAL_INST + '❌'
+    user_themes = list(cursor.fetchall()[0])[0]
+    themes_map = {
+        'Биология': ('biology', BIOLOGY),
+        'Медицина': ('medicine', MEDICINE),
+        'Физика': ('physics', PHYSICS),
+        'Химия': ('chemistry', CHEMISTRY),
+        'Математика': ('maths', MATHS),
+        'Агрокультура': ('agro', AGRO),
+        'Инженерные науки': ('engineer', ENGINEER),
+        'Науки о земле': ('earth_science', EARTH_SCIENCE),
+        'Гуманитарные науки': ('social_inst', SOCIAL_INST)
+    }
+    result_vars = {}
+    for theme, (var_name, label) in themes_map.items():
+        result_vars[var_name] = label + ('✔️' if theme in user_themes else '❌')
+    biology = result_vars['biology']
+    medicine = result_vars['medicine']
+    physics = result_vars['physics']
+    chemistry = result_vars['chemistry']
+    maths = result_vars['maths']
+    agro = result_vars['agro']
+    engineer = result_vars['engineer']
+    earth_science = result_vars['earth_science']
+    social_inst = result_vars['social_inst']
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton(biology, callback_data='switch_interesting_theme_biology'))
     keyboard.add(InlineKeyboardButton(medicine, callback_data='switch_interesting_theme_medicine'))
@@ -444,19 +431,28 @@ def interesting_themes(call: CallbackQuery):
 def switch_science(call: CallbackQuery):
     cursor.execute('SELECT science_themes FROM Users WHERE id = ?', (call.message.chat.id,))
     user_themes = list(cursor.fetchall()[0])[0]
-    print(user_themes)
     theme = call.data.replace('switch_interesting_theme_', '')
-    if theme == "physics_science":
-        if 'Физические науки' in user_themes:
-            user_themes = user_themes.replace('Физические науки', '')
+    theme_map = {
+        "biology": "Биология",
+        "medicine": "Медицина",
+        "physics_science": "Физика",
+        "chemistry": "Химия",
+        "maths": "Математика",
+        "agro": "Агрокультура",
+        "engineer": "Инженерные науки",
+        "earth_science": "Науки о земле",
+        "social_inst": "Гуманитарные науки"
+    }
+    if theme in theme_map:
+        theme_name = theme_map[theme]
+        if theme_name in user_themes:
+            user_themes = user_themes.replace(theme_name, '')
         else:
-            user_themes = user_themes + 'Физические науки'
-    cursor.execute('INSERT INTO Users (science_themes) VALUES ')
-
-
-@bot.callback_query_handler(func=lambda call: call.data == 'back_to_settings')
-def back_to_settings(call: CallbackQuery):
-    draw_settings(call.message)
+            user_themes += theme_name
+    cursor.execute('UPDATE Users set science_themes = ? WHERE id = ?', (user_themes,
+                                                                        call.message.chat.id,))
+    connection.commit()
+    interesting_themes(call)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'notifications')
