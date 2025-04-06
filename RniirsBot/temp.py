@@ -56,7 +56,7 @@ def main_menu(message, new_draw: bool):
             'INSERT INTO Users (id, role, notifications, organisation, science_themes, data_relevances, '
             'can_post,name) VALUES (?, ? ,?, ?, ?, ?, ?, ?)',
             (message.chat.id, 'ANONIM', '1', 'None',
-             "БиологияМедицинаФизикаХимияМатематикаАгрокультураИнженерные наукиНауки о землеГуманитарные науки", 'THIS YEAR', 'FALSE', message.from_user.username))
+             "Математика", 'THIS YEAR', 'FALSE', message.from_user.username))
         connection.commit()
     keyboard.add(InlineKeyboardButton(NEWS_BUTTON, callback_data='news'))
     cursor.execute('SELECT role FROM Users WHERE id = ?', (message.chat.id,))
@@ -119,12 +119,12 @@ def read_news_by_topic(call : CallbackQuery):
             if rows:
                 for row in rows:
                     topic, title, link, intro, date = row
-                    result = topic + "\n"
-                    result = title + "\n"
-                    result = link + "\n"
-                    result = intro + "\n"
-                    result = date + "\n"
+                    result += title + "\n"
+                    result += link + "\n"
+                    result += intro + "\n"
+                    result += date + "\n"
                     bot.send_message(call.message.chat.id, text=result)
+                    result = ""
             else:
                 result = f"Новостей по теме не найдено."
 
@@ -134,7 +134,7 @@ def read_news_by_topic(call : CallbackQuery):
         if conn:
             conn.close()
     with open('bot_logo.png', 'rb') as photo:
-        bot.send_photo(call.message.chat.id, photo, parse_mode='HTML',)
+        bot.send_photo(call.message.chat.id, photo, parse_mode='HTML', reply_markup=keyboard)
 
 
 @bot.message_handler(commands=['start'])
