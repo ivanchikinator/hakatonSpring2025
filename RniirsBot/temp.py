@@ -56,7 +56,7 @@ def main_menu(message, new_draw: bool):
             'INSERT INTO Users (id, role, notifications, organisation, science_themes, data_relevances, '
             'can_post,name) VALUES (?, ? ,?, ?, ?, ?, ?, ?)',
             (message.chat.id, 'ANONIM', '1', 'None',
-             "БиологияМедицинаФизикаХимияМатематикаАгрокультураИнженерные наукиНауки о землеГуманитарные науки", 'THIS YEAR', 'FALSE', message.from_user.username))
+             "БиологияМедицинаФизикаХимияМатематикаАгрокультураИнженерные наукиНауки о землеГуманитарные науки", 'THIS YEAR', 'TRUE', message.from_user.username))
         connection.commit()
     keyboard.add(InlineKeyboardButton(NEWS_BUTTON, callback_data='news'))
     cursor.execute('SELECT role FROM Users WHERE id = ?', (message.chat.id,))
