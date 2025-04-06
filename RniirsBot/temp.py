@@ -184,7 +184,7 @@ def enter_organisation(call: CallbackQuery):
         organisations = cursor.fetchall()
         print(organisations)
         info = ''
-        if len(organisations[0]) > 0:
+        if len(organisations) > 0:
             for organisation in organisations:
                 info += organisation[0] +"\n"
             with open('bot_logo.png', "rb") as photo:
