@@ -6,7 +6,6 @@ from constants import *
 from contextlib import suppress
 from sqlite3 import connect, IntegrityError
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-import asyncio
 
 connection = connect('database.db', check_same_thread=False)
 
@@ -19,7 +18,6 @@ role TEXT,
 notifications TEXT,
 organisation TEXT,
 science_themes TEXT,
-data_relevances TEXT,
 can_post BOOLEAN,
 name TEXT varchar(20)
 )
@@ -39,12 +37,12 @@ tags TEXT
 )
 ''')
 #await asyncio.sleep(3600)
-        #cursor.execute('SELECT admin_id FROM Organisations WHERE name = ?', (organisation,))
-        #admin_id = str(cursor.fetchone()[0])
-        #bot.send_message(admin_id, f"Человек с {message.chat.id} вступил в организацию")
+#cursor.execute('SELECT admin_id FROM Organisations WHERE name = ?', (organisation,))
+#admin_id = str(cursor.fetchone()[0])
+#bot.send_message(admin_id, f"Человек с {message.chat.id} вступил в организацию")
 #7781448243:AAFlty1i8-xAgU7TTWVzC19FX4pxz3w-e3M
 #7964476020:AAFzkUKqZLWIzYkatzaqG1attRUrSAk3rZY
-API_TOKEN = "7964476020:AAFzkUKqZLWIzYkatzaqG1attRUrSAk3rZY"
+API_TOKEN = "7781448243:AAFlty1i8-xAgU7TTWVzC19FX4pxz3w-e3M"
 
 bot = telebot.TeleBot(API_TOKEN)
 
@@ -53,10 +51,11 @@ def main_menu(message, new_draw: bool):
     keyboard = InlineKeyboardMarkup(row_width=5)
     with suppress(IntegrityError):
         cursor.execute(
-            'INSERT INTO Users (id, role, notifications, organisation, science_themes, data_relevances, '
-            'can_post,name) VALUES (?, ? ,?, ?, ?, ?, ?, ?)',
+            'INSERT INTO Users (id, role, notifications, organisation, science_themes,'
+            'can_post,name) VALUES (?, ? ,?, ?, ?, ?, ?)',
             (message.chat.id, 'ANONIM', '1', 'None',
-             "БиологияМедицинаФизикаХимияМатематикаАгрокультураИнженерные наукиНауки о землеГуманитарные науки", 'THIS YEAR', 'TRUE', message.from_user.username))
+             "БиологияМедицинаФизикаХимияМатематикаАгрокультураИнженерные наукиНауки о землеГуманитарные науки", 'TRUE',
+             message.from_user.username))
         connection.commit()
     keyboard.add(InlineKeyboardButton(NEWS_BUTTON, callback_data='news'))
     cursor.execute('SELECT role FROM Users WHERE id = ?', (message.chat.id,))
@@ -67,12 +66,12 @@ def main_menu(message, new_draw: bool):
         keyboard.add(InlineKeyboardButton(CREATE_POST, callback_data='create_post'))
     if role == 'ADMIN':
         keyboard.add(InlineKeyboardButton(YOUR_ORGANISATIONS, callback_data='organisation_members'))
-        keyboard.add(InlineKeyboardButton('Удалить организацию', callback_data='delete_organisation'))
+        keyboard.add(InlineKeyboardButton(DELETE_ORGANISATION, callback_data='delete_organisation'))
     if role == 'ANONIM':
         keyboard.add(InlineKeyboardButton(CREATE_ORGANISATION, callback_data='create_organisation'))
-        keyboard.add(InlineKeyboardButton('Вступить в организацию', callback_data='enter_organisation'))
+        keyboard.add(InlineKeyboardButton(JOIN_ORGANISATION, callback_data='enter_organisation'))
     if role == 'USER':
-        keyboard.add(InlineKeyboardButton('Покинуть организацию', callback_data='leave_organisation'))
+        keyboard.add(InlineKeyboardButton(LEAVE_ORGANISATION, callback_data='leave_organisation'))
     keyboard.add(InlineKeyboardButton(OPTIONS_BUTTON, callback_data='settings'))
     if new_draw:
         with open('bot_logo.png', 'rb') as photo:
@@ -100,22 +99,26 @@ def draw_settings(message):
             reply_markup=keyboard
         )
 
+
 def split_by_capital_letters_to_array(text):
     return re.findall('[А-ЯЁ][^А-ЯЁ]*', text)
+
+
 @bot.callback_query_handler(func=lambda call: call.data == 'Получить новость')
-def read_news_by_topic(call : CallbackQuery):
+def read_news_by_topic(call: CallbackQuery):
     keyboard = InlineKeyboardMarkup(row_width=1)
-    keyboard.add(InlineKeyboardButton("Получить новости", callback_data='Получить новость'))
+    keyboard.add(InlineKeyboardButton(GET_NEWS, callback_data='Получить новость'))
     keyboard.add(InlineKeyboardButton(BACK, callback_data='back_to_menu'))
     result = ''
     try:
         conn = sqlite3.connect("news_titles.db")
         cursor2 = conn.cursor()
-        cursor.execute("SELECT science_themes FROM Users WHERE id=?", (call.message.chat.id,))  # Используем параметризованный запрос
+        cursor.execute("SELECT science_themes FROM Users WHERE id=?",
+                       (call.message.chat.id,))  # Используем параметризованный запрос
         themes = split_by_capital_letters_to_array(cursor.fetchone()[0])
 
         for theme in themes:
-            cursor2.execute("SELECT * FROM news WHERE topic=?", (theme,)) # Используем параметризованный запрос
+            cursor2.execute("SELECT * FROM news WHERE topic=?", (theme,))  # Используем параметризованный запрос
             rows = cursor2.fetchall()[0]
             if rows:
                 topic, title, link, intro, date = rows
@@ -141,8 +144,10 @@ def read_news_by_topic(call : CallbackQuery):
 @bot.message_handler(commands=['start'])
 def start(message):
     main_menu(message, True)
+
+
 @bot.callback_query_handler(func=lambda call: call.data == 'delete_organisation')
-def delete_organisation(call : CallbackQuery):
+def delete_organisation(call: CallbackQuery):
     cursor.execute('SELECT name FROM Organisations WHERE admin_id = ?', (call.message.chat.id,))
     organisation = cursor.fetchone()[0]
     cursor.execute('SELECT id FROM Users WHERE organisation = ?', (organisation,))
@@ -153,11 +158,14 @@ def delete_organisation(call : CallbackQuery):
         cursor.execute('UPDATE Users SET organisation = ? WHERE id = ?', ('None', id[0],))
         cursor.execute('UPDATE Users SET role = ? WHERE id = ?', ('ANONIM', id[0],))
         with open('bot_logo.png', 'rb') as photo:
-            bot.send_photo(id[0], photo, caption='Ваша организация расформированна', parse_mode='HTML', reply_markup=keyboard)
+            bot.send_photo(id[0], photo, caption=ORGANISATION_IS_DELETED, parse_mode='HTML',
+                           reply_markup=keyboard)
     cursor.execute('DELETE FROM Organisations WHERE name = ?', (organisation,))
     connection.commit()
+
+
 @bot.callback_query_handler(func=lambda call: call.data == 'leave_organisation')
-def leave_organisation(call : CallbackQuery):
+def leave_organisation(call: CallbackQuery):
     keyboard = InlineKeyboardMarkup(row_width=1)
     keyboard.add(InlineKeyboardButton(BACK, callback_data='back_to_menu'))
     cursor.execute('SELECT role FROM Users WHERE id = ?', (call.message.chat.id,))
@@ -168,11 +176,13 @@ def leave_organisation(call : CallbackQuery):
         connection.commit()
         with open('bot_logo.png', "rb") as photo:
             bot.edit_message_media(
-                media=telebot.types.InputMediaPhoto(photo, caption="Вы успешно покинули организацию"),
+                media=telebot.types.InputMediaPhoto(photo, caption=YOU_LEAVED_ORGANISATION, parse_mode='HTML'),
                 chat_id=call.message.chat.id,
                 message_id=call.message.message_id,
                 reply_markup=keyboard
             )
+
+
 @bot.callback_query_handler(func=lambda call: call.data == 'enter_organisation')
 def enter_organisation(call: CallbackQuery):
     keyboard = InlineKeyboardMarkup(row_width=1)
@@ -180,51 +190,63 @@ def enter_organisation(call: CallbackQuery):
     cursor.execute('SELECT role FROM Users WHERE id = ?', (call.message.chat.id,))
     role = cursor.fetchone()[0]
     if role == 'ANONIM':
-        cursor.execute('SELECT * FROM Organisations' )
+        cursor.execute('SELECT * FROM Organisations')
         organisations = cursor.fetchall()
-        print(organisations)
         info = ''
-        if len(organisations) > 0:
-            for organisation in organisations:
-                info += organisation[0] +"\n"
+        try:
+            if len(organisations[0]) > 0:
+                for organisation in organisations:
+                    info += organisation[0] + "\n"
+                with open('bot_logo.png', "rb") as photo:
+                    bot.edit_message_media(
+                        media=telebot.types.InputMediaPhoto(photo,
+                                                        caption="<strong>Введите название организации: Доступные - " +
+                                                                info + "</strong>", parse_mode='HTML'),
+                        chat_id=call.message.chat.id,
+                        message_id=call.message.message_id,
+                        reply_markup=keyboard
+                    )
+                bot.register_next_step_handler(call.message, choose_organisation)
+            else:
+                with open('bot_logo.png', "rb") as photo:
+                    bot.edit_message_media(
+                        media=telebot.types.InputMediaPhoto(photo, caption=NO_AVAIBLE_ORGANISATIONS, parse_mode='HTML'),
+                        chat_id=call.message.chat.id,
+                        message_id=call.message.message_id,
+                        reply_markup=keyboard
+                    )
+        except IndexError:
             with open('bot_logo.png', "rb") as photo:
                 bot.edit_message_media(
-                    media=telebot.types.InputMediaPhoto(photo, caption="Введите название организации: Доступные - " + info),
+                    media=telebot.types.InputMediaPhoto(photo, caption=NO_AVAIBLE_ORGANISATIONS, parse_mode='HTML'),
                     chat_id=call.message.chat.id,
                     message_id=call.message.message_id,
                     reply_markup=keyboard
                 )
-            bot.register_next_step_handler(call.message, choose_organisation)
-        else:
-            with open('bot_logo.png', "rb") as photo:
-                bot.edit_message_media(
-                    media=telebot.types.InputMediaPhoto(photo, caption="Нет доступных организаций"),
-                    chat_id=call.message.chat.id,
-                    message_id=call.message.message_id,
-                    reply_markup=keyboard
-                )
+
+
 def choose_organisation(message):
-    print(message.text)
     keyboard = InlineKeyboardMarkup(row_width=1)
     keyboard.add(InlineKeyboardButton(BACK, callback_data='back_to_menu'))
     cursor.execute('SELECT name FROM Organisations WHERE name = ?', (message.text,))
     organisation = cursor.fetchone()[0]
-    print(organisation)
     cursor.execute('UPDATE Users SET organisation = ? WHERE id = ?', (organisation, message.chat.id,))
     cursor.execute('UPDATE Users SET role = ? WHERE id = ?', ('USER', message.chat.id,))
     connection.commit()
     with open('bot_logo.png', "rb") as photo:
         with open('bot_logo.png', 'rb') as photo:
-            bot.send_photo(message.chat.id, photo, caption="Вы вступили в организацию", reply_markup=keyboard)
+            bot.send_photo(message.chat.id, photo, caption=YOU_LEAVED_ORGANISATION, reply_markup=keyboard,
+                           parse_mode='HTML')
+
 
 @bot.callback_query_handler(func=lambda call: call.data == 'news')
 def show_news(call: CallbackQuery):
     keyboard = InlineKeyboardMarkup(row_width=1)
+    keyboard.add(InlineKeyboardButton(GET_NEWS, callback_data='Получить новость'))
     keyboard.add(InlineKeyboardButton(BACK, callback_data='back_to_menu'))
-    keyboard.add(InlineKeyboardButton("Получить новости", callback_data='Получить новость'))
     with open('bot_logo.png', "rb") as photo:
         bot.edit_message_media(
-            media=telebot.types.InputMediaPhoto(photo, caption="Здесь будут последние новости!"),
+            media=telebot.types.InputMediaPhoto(photo, caption=THERES_LATEST_NEWS, parse_mode='HTML'),
             chat_id=call.message.chat.id,
             message_id=call.message.message_id,
             reply_markup=keyboard
@@ -245,9 +267,10 @@ def create_post(call: CallbackQuery):
             reply_markup=keyboard
         )
     if role == 'ADMIN':
-            bot.register_next_step_handler(call.message, post)
+        bot.register_next_step_handler(call.message, post)
     else:
         bot.register_next_step_handler(call.message, implement_post)
+
 
 def implement_post(message):
     cursor.execute('SELECT organisation FROM Users WHERE id = ?', (message.chat.id,))
@@ -256,17 +279,21 @@ def implement_post(message):
     admin_id = str(cursor.fetchall()[0])
     admin_keyboard = InlineKeyboardMarkup()
     admin_keyboard.add(InlineKeyboardButton(DECLINE_POST, callback_data='decline_post' + message.text),
-                       InlineKeyboardButton(ACCEPT_POST, callback_data='accept_post'+ message.text))
+                       InlineKeyboardButton(ACCEPT_POST, callback_data='accept_post' + message.text))
     with open('bot_logo.png', 'rb') as photo:
         bot.send_photo(admin_id, photo, caption=message.text, parse_mode='HTML', reply_markup=admin_keyboard)
     bot.send_message(message.chat.id, "Пост отправлен на модерацию")
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith('accept_post') or call.data.startswith('decline_post'))
+
+@bot.callback_query_handler(
+    func=lambda call: call.data.startswith('accept_post') or call.data.startswith('decline_post'))
 def answer_from_admin(call: CallbackQuery):
     if call.data.startswith('accept_post'):
         post(call.message)
     else:
         bot.reply_to(call.message, 'Пост отклонён')
+
+
 def post(message):
     cursor.execute('SELECT organisation FROM Users WHERE id = ?', (message.chat.id,))
     organisation = str(cursor.fetchall()[0])
@@ -280,13 +307,15 @@ def post(message):
         with open('bot_logo.png', 'rb') as photo:
             bot.send_photo(id[0], photo, caption=message, parse_mode='HTML')
 
+
 # with open('bot_logo.png', "rb") as photo:
 #     bot.edit_message_media(
 #         media=telebot.types.InputMediaPhoto(photo, caption=call.message, parse_mode='HTML'),
 #         chat_id=call.message.chat.id,
 #         message_id=call.message.message_id,
 #     )
-@bot.callback_query_handler(func=lambda call: call.data == 'organisation_members' or call.data == 'back_to_organisations')
+@bot.callback_query_handler(
+    func=lambda call: call.data == 'organisation_members' or call.data == 'back_to_organisations')
 def organisation_members(call: CallbackQuery):
     cursor.execute('SELECT name FROM Organisations WHERE admin_id = ?', (call.message.chat.id,))
     keyboard = InlineKeyboardMarkup()
@@ -322,9 +351,10 @@ def organisation_members(call: CallbackQuery):
             reply_markup=keyboard
         )
 
+
 @bot.callback_query_handler(func=lambda call: call.data == 'change_access')
-def change_access(call : CallbackQuery):
-    bot.send_message(call.message.chat.id, "Введите имя пользователя")
+def change_access(call: CallbackQuery):
+    bot.send_message(call.message.chat.id, ENTER_USERNAME)
     bot.register_next_step_handler(call.message, handle_user)
 
 
@@ -333,7 +363,7 @@ def handle_user(message):
     id_result = cursor.fetchone()
 
     if not id_result:
-        bot.send_message(message.chat.id, "Пользователь не найден")
+        bot.send_message(message.chat.id, USER_NOT_FOUND)
         return
 
     user_id = id_result[0]
@@ -353,12 +383,9 @@ def handle_user(message):
 
     # Отправляем сообщение
     if can_post_bool:
-        bot.send_message(message.chat.id,
-                         "Пользователь обновлён, до обновления пользователь имел доступ к созданию постов")
+        bot.send_message(message.chat.id,USER_ANONIM_NOW)
     else:
-        bot.send_message(message.chat.id,
-                         "Пользователь обновлён, до обновления пользователь не имел доступ к созданию постов")
-
+        bot.send_message(message.chat.id,USER_ADMIN_NOW)
     connection.commit()
 
 
@@ -388,7 +415,7 @@ def confirm_organisation(message):
     cursor.execute('SELECT * FROM Organisations WHERE name = ?', (message.text,))
     keyboard = InlineKeyboardMarkup()
     keyboard.add(InlineKeyboardButton(OK, callback_data='back_to_menu'))
-    if cursor.fetchone() == None:
+    if cursor.fetchone() is None:
         cursor.execute('INSERT INTO Organisations (name, admin_id) VALUES (?, ?)',
                        (message.text, message.chat.id,))
         cursor.execute('UPDATE Users set role = ?, organisation = ?, can_post = ? WHERE id = ?',
@@ -399,7 +426,7 @@ def confirm_organisation(message):
                            reply_markup=keyboard)
     else:
         with open('bot_logo.png', 'rb') as photo:
-            bot.send_photo(message.chat.id, photo, caption="Организация уже существует", parse_mode='HTML',
+            bot.send_photo(message.chat.id, photo, caption=ORGANISATION_DOESNT_EXIST, parse_mode='HTML',
                            reply_markup=keyboard)
 
 
