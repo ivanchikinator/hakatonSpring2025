@@ -1,3 +1,5 @@
+import asyncio
+
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
@@ -97,8 +99,15 @@ cursor.execute('''
     )
 ''') # UNIQUE constraint added to prevent duplicates
 
+async def main():
+    while True:
+        asyncio.create_task(hourly_task())
+        await asyncio.sleep(3600)
 
-scrape_page(start_url, visited_urls, topics, conn)
-conn.close()
 
-print("Данные успешно записаны в базу данных news_titles.db")
+async def hourly_task():
+    print("парсинг начат")
+    scrape_page(start_url, visited_urls, topics, conn) # ждем 1 час
+    print("Данные успешно записаны в базу данных news_titles.db")
+if __name__ == "__main__":
+    asyncio.run(main())

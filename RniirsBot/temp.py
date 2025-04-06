@@ -2,11 +2,12 @@ import re
 import sqlite3
 
 import telebot
+
+import Parser
 from constants import *
 from contextlib import suppress
 from sqlite3 import connect, IntegrityError
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
-import asyncio
 
 connection = connect('database.db', check_same_thread=False)
 
@@ -102,9 +103,11 @@ def draw_settings(message):
 
 def split_by_capital_letters_to_array(text):
     return re.findall('[А-ЯЁ][^А-ЯЁ]*', text)
+
 @bot.callback_query_handler(func=lambda call: call.data == 'Получить новость')
 def read_news_by_topic(call : CallbackQuery):
     keyboard = InlineKeyboardMarkup(row_width=1)
+    keyboard.add(InlineKeyboardButton("Получить новости", callback_data='Получить новость'))
     keyboard.add(InlineKeyboardButton(BACK, callback_data='back_to_menu'))
     result = ''
     try:
@@ -115,16 +118,16 @@ def read_news_by_topic(call : CallbackQuery):
 
         for theme in themes:
             cursor2.execute("SELECT * FROM news WHERE topic=?", (theme,)) # Используем параметризованный запрос
-            rows = cursor2.fetchall()
+            print(cursor2.fetchall())
+            rows = cursor2.fetchall()[0]
             if rows:
-                for row in rows:
-                    topic, title, link, intro, date = row
-                    result += title + "\n"
-                    result += link + "\n"
-                    result += intro + "\n"
-                    result += date + "\n"
-                    bot.send_message(call.message.chat.id, text=result)
-                    result = ""
+                topic, title, link, intro, date = rows
+                result += title + "\n"
+                result += link + "\n"
+                result += intro + "\n"
+                result += date + "\n"
+                bot.send_message(call.message.chat.id, text=result)
+                result = ""
             else:
                 result = f"Новостей по теме не найдено."
 
@@ -183,7 +186,7 @@ def enter_organisation(call: CallbackQuery):
         organisations = cursor.fetchall()
         print(organisations)
         info = ''
-        if len(organisations[0]) > 0:
+        if len(organisations) > 0:
             for organisation in organisations:
                 info += organisation[0] +"\n"
             with open('bot_logo.png', "rb") as photo:
